@@ -140,11 +140,47 @@ func SendEverythingToBigquery() (err error) {
 		return err
 	}
 
-	largeSeries, err := Query(time.Date(2010, 1, 1, 0, 0, 0, 0, time.UTC),
-		time.Now().In(time.UTC), OrgNr)
-	if err != nil {
-		return err
+	log.Println("Slowly read the data from API to the large series.")
+	largeSeries := make([]Statistikk, 0)
+	{
+		limiter := time.Tick(500 * time.Millisecond)
+		fromDate := time.Date(2010, 1, 1, 0, 0, 0, 0, time.UTC)
+		toDate := time.Now().In(time.UTC)
+		aDate := fromDate
+		const MonthIncrement = 5
+		for aDate.Before(toDate) {
+			log.Printf("Reading from %v to %v", aDate, aDate.AddDate(0, MonthIncrement, 0))
+			tmp, err := Query(aDate, aDate.AddDate(0, MonthIncrement, 0), OrgNr)
+			if err != nil {
+				return err
+			}
+			largeSeries = append(largeSeries, tmp...)
+			<-limiter
+			aDate = aDate.AddDate(0, MonthIncrement, 0)
+		}
 	}
+	log.Printf("Read a total of %v values from the large series", len(largeSeries))
+
+	log.Println("Slowly read the data from API to the small series")
+	smallSeries := make([]Statistikk, 0)
+	{
+		limiter := time.Tick(500 * time.Millisecond)
+		fromDate := time.Date(2018, 1, 1, 0, 0, 0, 0, time.UTC)
+		toDate := time.Date(2020, 8, 1, 0, 0, 0, 0, time.UTC)
+		aDate := fromDate
+		const MonthIncrement = 5
+		for aDate.Before(toDate) {
+			log.Printf("Reading from %v to %v", aDate, aDate.AddDate(0, MonthIncrement, 0))
+			tmp, err := Query(aDate, aDate.AddDate(0, MonthIncrement, 0), OldOrg)
+			if err != nil {
+				return err
+			}
+			smallSeries = append(smallSeries, tmp...)
+			<-limiter
+			aDate = aDate.AddDate(0, MonthIncrement, 0)
+		}
+	}
+	log.Printf("Read a total of %v values from the small series", len(largeSeries))
 
 	// Time needs to be in the same timezone since
 	collatorMap := make(map[time.Time]Statistikk, 0)
@@ -156,7 +192,6 @@ func SendEverythingToBigquery() (err error) {
 		}
 	}
 
-	smallSeries, err := Query(time.Date(2018, 1, 1, 0, 0, 0, 0, time.UTC), time.Date(2020, 8, 1, 0, 0, 0, 0, time.UTC), OldOrg)
 	for _, v := range smallSeries {
 		t, ok := collatorMap[v.Timestamp]
 		if ok {
@@ -181,10 +216,29 @@ func SendEverythingToBigquery() (err error) {
 	fmt.Println("First object is", collatedSeries[0].Timestamp)
 	fmt.Println("Last object is", collatedSeries[len(collatedSeries)-1])
 
-	/*
-		if err := tableRef.Inserter().Put(ctx, collatedSeries); err != nil {
+	work := SplitIntoChunks(collatedSeries, 5000)
+	log.Printf("Beginning transmission to BigQuery, splitting workload into %v parts", len(work))
+	limiter := time.Tick(2000 * time.Millisecond)
+	for i := range work {
+		log.Printf("Submitting %v of %v parts, this one has  %v rows", i, len(work), len(work[i]))
+		if err := tableRef.Inserter().Put(ctx, work[i]); err != nil {
 			return err
-		}*/
+		}
+		<-limiter
+	}
 
 	return err
+}
+
+func SplitIntoChunks(buf []Statistikk, lim int) [][]Statistikk {
+	var chunk []Statistikk
+	chunks := make([][]Statistikk, 0, len(buf)/lim+1)
+	for len(buf) >= lim {
+		chunk, buf = buf[:lim], buf[lim:]
+		chunks = append(chunks, chunk)
+	}
+	if len(buf) > 0 {
+		chunks = append(chunks, buf[:]) // :len(buf)
+	}
+	return chunks
 }
