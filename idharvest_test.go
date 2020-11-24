@@ -95,3 +95,38 @@ func TestUnmarshal(t *testing.T) {
 	}
 
 }
+
+// TestDateReflection tests if we can compare and unmarshall
+// correctly.
+func TestDateReflection(t *testing.T) {
+
+	testString := `
+	{
+		"time": "2020-05-01T00:00:00Z",
+		"hello": "hi"
+	}`
+
+	type Test struct {
+		Time  time.Time `json:"time"`
+		Hello string    `json:"hello"`
+	}
+
+	var v Test
+	err := json.Unmarshal([]byte(testString), &v)
+	if err != nil {
+		t.Error(err)
+	}
+
+	b := time.Date(2020, 05, 01, 00, 00, 00, 00, time.UTC)
+	c := time.Date(2021, 05, 01, 00, 00, 00, 00, time.UTC)
+
+	if v.Time != b {
+		t.Error(" v != b when serializing.")
+	}
+	if v.Time.Unix() != b.Unix() {
+		t.Error(" v != b when comparing unix timestamp. ", v, b)
+	}
+	if v.Time == c {
+		t.Error("Should not be equal: ", v, c)
+	}
+}

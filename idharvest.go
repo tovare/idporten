@@ -24,9 +24,11 @@ package idharvest
 import (
 	"context"
 	"encoding/json"
+	"fmt"
 	"io/ioutil"
 	"log"
 	"net/http"
+	"sort"
 	"time"
 
 	"cloud.google.com/go/bigquery"
@@ -112,7 +114,7 @@ func SendEverythingToBigquery() (err error) {
 			Description: "Statistikk om innlogginger fra idporten",
 			Location:    "EU", // See https://cloud.google.com/bigquery/docs/locations
 		}
-		if err := client.Dataset("roundtrip").Create(ctx, meta); err != nil {
+		if err := client.Dataset(datasetName).Create(ctx, meta); err != nil {
 			return err
 		}
 	}
@@ -138,18 +140,51 @@ func SendEverythingToBigquery() (err error) {
 		return err
 	}
 
-	// Process data from idporten.
-	/*
-		items2 := []TestSchema{
-			{MyTime: time.Now().AddDate(0, 0, 0), MyValue: 10},
-			{MyTime: time.Now().AddDate(0, 0, 1), MyValue: 11},
-			{MyTime: time.Now().AddDate(0, 0, 2), MyValue: 12},
-			{MyTime: time.Now().AddDate(0, 0, 3), MyValue: 13},
-		}
+	largeSeries, err := Query(time.Date(2010, 1, 1, 0, 0, 0, 0, time.UTC),
+		time.Now().In(time.UTC), OrgNr)
+	if err != nil {
+		return err
+	}
 
-		if err := tableRef.Inserter().Put(ctx, items2); err != nil {
-			fmt.Println("Failed to insert values", err)
+	// Time needs to be in the same timezone since
+	collatorMap := make(map[time.Time]Statistikk, 0)
+	for _, v := range largeSeries {
+		v := v.CalcSum()
+		collatorMap[v.Timestamp] = v
+		if v.Timestamp.Year() < 1000 {
+			fmt.Println("Incorrect data in large series: ", v)
 		}
-	*/
+	}
+
+	smallSeries, err := Query(time.Date(2018, 1, 1, 0, 0, 0, 0, time.UTC), time.Date(2020, 8, 1, 0, 0, 0, 0, time.UTC), OldOrg)
+	for _, v := range smallSeries {
+		t, ok := collatorMap[v.Timestamp]
+		if ok {
+			v = v.Add(t).CalcSum()
+		}
+		if v.Timestamp.Year() < 1000 {
+			log.Fatal("Feiled date ", v)
+		}
+		collatorMap[v.Timestamp] = v
+	}
+
+	collatedSeries := make([]Statistikk, 0, len(collatorMap))
+	for _, v := range collatorMap {
+		collatedSeries = append(collatedSeries, v)
+	}
+
+	sort.Slice(collatedSeries, func(i, j int) bool {
+		return collatedSeries[i].Timestamp.Before(collatedSeries[j].Timestamp)
+	})
+
+	fmt.Printf("Sucessfully processed %v lines ", len(collatedSeries))
+	fmt.Println("First object is", collatedSeries[0].Timestamp)
+	fmt.Println("Last object is", collatedSeries[len(collatedSeries)-1])
+
+	/*
+		if err := tableRef.Inserter().Put(ctx, collatedSeries); err != nil {
+			return err
+		}*/
+
 	return err
 }

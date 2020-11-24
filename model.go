@@ -1,6 +1,9 @@
 package idharvest
 
-import "time"
+import (
+	"log"
+	"time"
+)
 
 // Statistikk contains the API result with mapping to It was initially generated
 // automaticly from the json-results of a REST-call last automated update on 23.
@@ -53,7 +56,10 @@ func (a Statistikk) Add(b Statistikk) (c Statistikk) {
 	c.Measurements.MinIDPIN += b.Measurements.MinIDPIN
 	c.Measurements.Federated += b.Measurements.Federated
 	c.Measurements.BankID += b.Measurements.BankID
-	return
+	if c.Timestamp.Year() < 1000 {
+		log.Fatal("Feiled date ", c)
+	}
+	return c
 }
 
 // CalcSum calculate the sum f all authentication methods, ignoring
@@ -73,5 +79,8 @@ func (a Statistikk) CalcSum() (b Statistikk) {
 		tmp.BuyPass +
 		tmp.MinIDPIN +
 		tmp.BankID
-	return
+	if b.Timestamp.Year() < 1000 {
+		log.Fatal("Feiled date ", b)
+	}
+	return b
 }

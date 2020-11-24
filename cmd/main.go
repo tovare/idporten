@@ -2,10 +2,17 @@ package main
 
 import (
 	"fmt"
+
+	idharvest "github.com/tovare/idporten"
 )
 
 func main() {
 	fmt.Println("hello")
+	err := idharvest.SendEverythingToBigquery()
+	if err != nil {
+		fmt.Println(err)
+	}
+
 	/*
 		a, _ := readSeries("https://statistikk-utdata.difi.no/991825827/idporten-innlogging/hours/sum/months?from=2013-05-01T00:00:00Z&to=2019-05-31T23:59:59Z&categories=TE-orgnum=889640782")
 		for i := range a {
