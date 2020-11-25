@@ -85,7 +85,8 @@ var projectID = "homepage-961"
 
 // SendEverythingToBigquery proocesses all historical data and sends it to BigQuery.
 // This process may take a few minutes and shuold be called locally. This procedure
-// is destructive to all historical data.
+// is destructive to all historical data and shold only be used when rebuilding
+// everything from
 //
 // Preparing BigQuery
 //
@@ -98,6 +99,11 @@ var projectID = "homepage-961"
 // All data is read from both organization numbers and merged using a map
 // structure. Once complete all entries are extracted and and the array
 // is sorted befre streaming the content to BigQuery.
+//
+// Datastudio-friendly format
+//
+// Metrics are stred with one metric for each line, this makes some graphs
+// work a lot better.
 //
 func SendEverythingToBigquery() (err error) {
 
@@ -350,6 +356,6 @@ func SplitMetricArrayIntoChunks(buf []Metric, lim int) [][]Metric {
 	}
 	if len(buf) > 0 {
 		chunks = append(chunks, buf[:]) // :len(buf)
-	}k
+	}
 	return chunks
 }
