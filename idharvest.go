@@ -216,7 +216,7 @@ func SendEverythingToBigquery() (err error) {
 	fmt.Println("First object is", collatedSeries[0].Timestamp)
 	fmt.Println("Last object is", collatedSeries[len(collatedSeries)-1])
 
-	work := SplitIntoChunks(collatedSeries, 5000)
+	work := SplitStatistikkArrayIntoChunks(collatedSeries, 5000)
 	log.Printf("Beginning transmission to BigQuery, splitting workload into %v parts", len(work))
 	limiter := time.Tick(2000 * time.Millisecond)
 	for i := range work {
@@ -227,10 +227,106 @@ func SendEverythingToBigquery() (err error) {
 		<-limiter
 	}
 
+	//
+	// Reshape the data and send again to BigQuery
+	//
+
+	metrics := make([]Metric, 0)
+
+	for _, v := range collatedSeries {
+		metrics = append(metrics, Metric{
+			Timestamp: v.Timestamp,
+			Metode:    Commfides,
+			Antall:    v.Measurements.Commfides,
+		})
+		metrics = append(metrics, Metric{
+			Timestamp: v.Timestamp,
+			Metode:    BuypassPassport,
+			Antall:    v.Measurements.BuypassPassport,
+		})
+		metrics = append(metrics, Metric{
+			Timestamp: v.Timestamp,
+			Metode:    EIDAS,
+			Antall:    v.Measurements.EIDAS,
+		})
+		metrics = append(metrics, Metric{
+			Timestamp: v.Timestamp,
+			Metode:    MinID,
+			Antall:    v.Measurements.MinID,
+		})
+		metrics = append(metrics, Metric{
+			Timestamp: v.Timestamp,
+			Metode:    BankIDMobil,
+			Antall:    v.Measurements.BankIDMobil,
+		})
+		metrics = append(metrics, Metric{
+			Timestamp: v.Timestamp,
+			Metode:    MinIDOTC,
+			Antall:    v.Measurements.MinIDOTC,
+		})
+		metrics = append(metrics, Metric{
+			Timestamp: v.Timestamp,
+			Metode:    Buypass,
+			Antall:    v.Measurements.BuyPass,
+		})
+		metrics = append(metrics, Metric{
+			Timestamp: v.Timestamp,
+			Metode:    MinIDPIN,
+			Antall:    v.Measurements.MinIDPIN,
+		})
+		metrics = append(metrics, Metric{
+			Timestamp: v.Timestamp,
+			Metode:    BankID,
+			Antall:    v.Measurements.BankID,
+		})
+	}
+	fmt.Printf("Created %v lines of metrics", len(metrics))
+
+	//
+	// Create the table for metrics, delete table if an old one exists.
+	//
+
+	var MetricsTableName string = "navmetrics"
+
+	metricSchema, err := bigquery.InferSchema(Metric{})
+	if err != nil {
+		return
+	}
+	metricsmetaData := &bigquery.TableMetadata{
+		Schema:         metricSchema,
+		ExpirationTime: time.Now().AddDate(2, 0, 0), // Table will be automatically deleted in 2 years.
+	}
+	metricsTableRef := client.Dataset(datasetName).Table(MetricsTableName)
+
+	// Delete the table if it exists.
+	_, err = metricsTableRef.Metadata(ctx)
+	if err == nil {
+		if err := metricsTableRef.Delete(ctx); err != nil {
+			return err
+		}
+	}
+	if err := metricsTableRef.Create(ctx, metricsmetaData); err != nil {
+		return err
+	}
+
+	// Split workload into chungs and send to BigQuery.
+
+	metricsWork := SplitMetricArrayIntoChunks(metrics, 5000)
+	log.Printf("Beginning transmission to BigQuery, splitting workload into %v parts", len(metricsWork))
+	metricsLimiter := time.Tick(2000 * time.Millisecond)
+	for i := range metricsWork {
+		log.Printf("Submitting %v of %v metric parts, this one has  %v rows", i, len(metrics), len(metricsWork[i]))
+		if err := metricsTableRef.Inserter().Put(ctx, metricsWork[i]); err != nil {
+			return err
+		}
+		<-metricsLimiter
+	}
 	return err
 }
 
-func SplitIntoChunks(buf []Statistikk, lim int) [][]Statistikk {
+// SplitStatistikkArrayIntoChunks divide buf slice into parts of lim and returns
+// an array of slices.
+func SplitStatistikkArrayIntoChunks(buf []Statistikk, lim int) [][]Statistikk {
 	var chunk []Statistikk
 	chunks := make([][]Statistikk, 0, len(buf)/lim+1)
 	for len(buf) >= lim {
@@ -240,5 +336,20 @@ func SplitIntoChunks(buf []Statistikk, lim int) [][]Statistikk {
 	if len(buf) > 0 {
 		chunks = append(chunks, buf[:]) // :len(buf)
 	}
+	return chunks
+}
+
+// SplitArrayIntoChunks divide buf slice into parts of lim and returns
+// an array of slices.
+func SplitMetricArrayIntoChunks(buf []Metric, lim int) [][]Metric {
+	var chunk []Metric
+	chunks := make([][]Metric, 0, len(buf)/lim+1)
+	for len(buf) >= lim {
+		chunk, buf = buf[:lim], buf[lim:]
+		chunks = append(chunks, chunk)
+	}
+	if len(buf) > 0 {
+		chunks = append(chunks, buf[:]) // :len(buf)
+	}k
 	return chunks
 }

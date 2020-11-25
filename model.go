@@ -84,3 +84,21 @@ func (a Statistikk) CalcSum() (b Statistikk) {
 	}
 	return b
 }
+
+const (
+	Commfides       = "Commfides"
+	BuypassPassport = "BuypassPassport"
+	EIDAS           = "EIDAS"
+	MinID           = "MinID"
+	BankIDMobil     = "BankIDMobil"
+	MinIDOTC        = "MinIDOTC"
+	Buypass         = "Buypass"
+	MinIDPIN        = "MinIDPIN"
+	BankID          = "BankID"
+)
+
+type Metric struct {
+	Timestamp time.Time `bigquery:"timestamp"`
+	Metode    string    `bigquery:"metode"`
+	Antall    int       `bigquery:"antall"`
+}
