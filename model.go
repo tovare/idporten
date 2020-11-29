@@ -47,9 +47,20 @@ func (s Statistikk) ToMetrics() (metrics []Metric) {
 	metrics = make([]Metric, 0)
 	metrics = append(metrics, Metric{
 		Timestamp: s.Timestamp,
+		Metode:    MinIDPassport,
+		Antall:    s.Measurements.MinIDPassport,
+	})
+	metrics = append(metrics, Metric{
+		Timestamp: s.Timestamp,
 		Metode:    Commfides,
 		Antall:    s.Measurements.Commfides,
 	})
+	metrics = append(metrics, Metric{
+		Timestamp: s.Timestamp,
+		Metode:    Buypass,
+		Antall:    s.Measurements.BuyPass,
+	})
+
 	metrics = append(metrics, Metric{
 		Timestamp: s.Timestamp,
 		Metode:    BuypassPassport,
@@ -74,11 +85,6 @@ func (s Statistikk) ToMetrics() (metrics []Metric) {
 		Timestamp: s.Timestamp,
 		Metode:    MinIDOTC,
 		Antall:    s.Measurements.MinIDOTC,
-	})
-	metrics = append(metrics, Metric{
-		Timestamp: s.Timestamp,
-		Metode:    Buypass,
-		Antall:    s.Measurements.BuyPass,
 	})
 	metrics = append(metrics, Metric{
 		Timestamp: s.Timestamp,
@@ -126,7 +132,6 @@ func (a Statistikk) CalcSum() (b Statistikk) {
 		tmp.MinID +
 		tmp.BankIDMobil +
 		tmp.MinIDOTC +
-		tmp.BankIDMobil +
 		tmp.MinIDOTC +
 		tmp.BuyPass +
 		tmp.MinIDPIN +
@@ -138,6 +143,7 @@ func (a Statistikk) CalcSum() (b Statistikk) {
 }
 
 const (
+	MinIDPassport   = "MinIDPassport"
 	Commfides       = "Commfides"
 	BuypassPassport = "BuypassPassport"
 	EIDAS           = "EIDAS"

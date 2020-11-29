@@ -82,7 +82,7 @@ func Query(from time.Time, to time.Time, orgnum Org) (stat []Statistikk, err err
 const (
 	datasetName      string = "idporten"
 	tableName        string = "nav"
-	projectID        string = "homepage-961"
+	projectID        string = "	"
 	MetricsTableName string = "navmetrics"
 )
 
