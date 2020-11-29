@@ -79,9 +79,84 @@ func Query(from time.Time, to time.Time, orgnum Org) (stat []Statistikk, err err
 	return
 }
 
-var datasetName string = "idporten"
-var tableName string = "nav"
-var projectID = "homepage-961"
+const (
+	datasetName      string = "idporten"
+	tableName        string = "nav"
+	projectID        string = "homepage-961"
+	MetricsTableName string = "navmetrics"
+)
+
+// PubSubMessage is the payload of a Pub/Sub event.
+type PubSubMessage struct {
+	Data []byte `json:"data"`
+}
+
+// StreamLatestDataToBigQuery incrementally updates BigQuery with the most
+// recent data as a cloud function. An hourly update of the most recent data
+// from idporten.
+//
+// Checks to see the most recent entry in BigQuery. Makes a query for the most
+// recent data and streams it into BigQuery.
+//
+//
+//    gcloud functions deploy StreamLatestDataToBigQuery --memory=127 --runtime go113 --trigger-topic monitor
+func StreamLatestDataToBigQuery(ctx context.Context, m PubSubMessage) (err error) {
+
+	client, err := bigquery.NewClient(ctx, projectID)
+	if err != nil {
+		return
+	}
+	defer client.Close()
+	// Query the last entry, this will return multiple lines, one for each metric.
+	q := client.Query(`
+		SELECT * FROM homepage-961.idporten.navmetrics WHERE (timestamp) IN 
+			( SELECT MAX(timestamp) FROM homepage-961.idporten.navmetrics )
+		`)
+
+	it, err := q.Read(ctx)
+	if err != nil {
+		return
+	}
+	var values Metric
+	// Will zero out values when reaching the end. We only need the first entry this time.
+	err = it.Next(&values)
+	if err != nil {
+		return
+	}
+
+	// I assume we get so little data that we can gather it all in one go.
+	// we could reload everything if discrepancies arise over time.
+	fromTime := values.Timestamp.Add(time.Hour)
+	toTime := time.Now().UTC()
+	if fromTime.After(toTime) {
+		// Sanity check failed. If we run collection too fast, we
+		// shouldn´t do anyting.
+		return
+	}
+
+	series, err := Query(fromTime, toTime, OrgNr)
+	if err != nil {
+		return err
+	}
+
+	metrics := make([]Metric, 0)
+	for _, v := range series {
+		metrics = append(metrics, v.ToMetrics()...)
+	}
+
+	// Stream to BigQuery tables.
+	metricsTableRef := client.Dataset(datasetName).Table(MetricsTableName)
+	if err := metricsTableRef.Inserter().Put(ctx, metrics); err != nil {
+		return err
+	}
+
+	seriesTableRef := client.Dataset(datasetName).Table(tableName)
+	if err := seriesTableRef.Inserter().Put(ctx, series); err != nil {
+		return err
+	}
+
+	return
+}
 
 // SendEverythingToBigquery proocesses all historical data and sends it to BigQuery.
 // This process may take a few minutes and shuold be called locally. This procedure
@@ -240,51 +315,7 @@ func SendEverythingToBigquery() (err error) {
 	metrics := make([]Metric, 0)
 
 	for _, v := range collatedSeries {
-		metrics = append(metrics, Metric{
-			Timestamp: v.Timestamp,
-			Metode:    Commfides,
-			Antall:    v.Measurements.Commfides,
-		})
-		metrics = append(metrics, Metric{
-			Timestamp: v.Timestamp,
-			Metode:    BuypassPassport,
-			Antall:    v.Measurements.BuypassPassport,
-		})
-		metrics = append(metrics, Metric{
-			Timestamp: v.Timestamp,
-			Metode:    EIDAS,
-			Antall:    v.Measurements.EIDAS,
-		})
-		metrics = append(metrics, Metric{
-			Timestamp: v.Timestamp,
-			Metode:    MinID,
-			Antall:    v.Measurements.MinID,
-		})
-		metrics = append(metrics, Metric{
-			Timestamp: v.Timestamp,
-			Metode:    BankIDMobil,
-			Antall:    v.Measurements.BankIDMobil,
-		})
-		metrics = append(metrics, Metric{
-			Timestamp: v.Timestamp,
-			Metode:    MinIDOTC,
-			Antall:    v.Measurements.MinIDOTC,
-		})
-		metrics = append(metrics, Metric{
-			Timestamp: v.Timestamp,
-			Metode:    Buypass,
-			Antall:    v.Measurements.BuyPass,
-		})
-		metrics = append(metrics, Metric{
-			Timestamp: v.Timestamp,
-			Metode:    MinIDPIN,
-			Antall:    v.Measurements.MinIDPIN,
-		})
-		metrics = append(metrics, Metric{
-			Timestamp: v.Timestamp,
-			Metode:    BankID,
-			Antall:    v.Measurements.BankID,
-		})
+		metrics = append(metrics, v.ToMetrics()...)
 	}
 	fmt.Printf("Created %v lines of metrics", len(metrics))
 

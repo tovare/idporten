@@ -41,6 +41,58 @@ type Statistikk struct {
 	Sum int `json:"sum,omitempty" bigquery:"sum"` // Privat kategori for summering.
 }
 
+// ToMetrics splits a single Statistikk structure to
+// one metric for each row.
+func (s Statistikk) ToMetrics() (metrics []Metric) {
+	metrics = make([]Metric, 0)
+	metrics = append(metrics, Metric{
+		Timestamp: s.Timestamp,
+		Metode:    Commfides,
+		Antall:    s.Measurements.Commfides,
+	})
+	metrics = append(metrics, Metric{
+		Timestamp: s.Timestamp,
+		Metode:    BuypassPassport,
+		Antall:    s.Measurements.BuypassPassport,
+	})
+	metrics = append(metrics, Metric{
+		Timestamp: s.Timestamp,
+		Metode:    EIDAS,
+		Antall:    s.Measurements.EIDAS,
+	})
+	metrics = append(metrics, Metric{
+		Timestamp: s.Timestamp,
+		Metode:    MinID,
+		Antall:    s.Measurements.MinID,
+	})
+	metrics = append(metrics, Metric{
+		Timestamp: s.Timestamp,
+		Metode:    BankIDMobil,
+		Antall:    s.Measurements.BankIDMobil,
+	})
+	metrics = append(metrics, Metric{
+		Timestamp: s.Timestamp,
+		Metode:    MinIDOTC,
+		Antall:    s.Measurements.MinIDOTC,
+	})
+	metrics = append(metrics, Metric{
+		Timestamp: s.Timestamp,
+		Metode:    Buypass,
+		Antall:    s.Measurements.BuyPass,
+	})
+	metrics = append(metrics, Metric{
+		Timestamp: s.Timestamp,
+		Metode:    MinIDPIN,
+		Antall:    s.Measurements.MinIDPIN,
+	})
+	metrics = append(metrics, Metric{
+		Timestamp: s.Timestamp,
+		Metode:    BankID,
+		Antall:    s.Measurements.BankID,
+	})
+	return
+}
+
 // Add two columns statistics objects.
 func (a Statistikk) Add(b Statistikk) (c Statistikk) {
 	c = a

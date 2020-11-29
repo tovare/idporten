@@ -1,6 +1,7 @@
 package idharvest
 
 import (
+	"context"
 	"encoding/json"
 	"reflect"
 	"testing"
@@ -94,6 +95,14 @@ func TestUnmarshal(t *testing.T) {
 		}
 	}
 
+}
+
+// TestStreamLatestDataToBigQuery
+func TestStreamLatestDataToBigQuery(t *testing.T) {
+	err := StreamLatestDataToBigQuery(context.Background(), PubSubMessage{[]byte("hello")})
+	if err != nil {
+		t.Error(err)
+	}
 }
 
 // TestDateReflection tests if we can compare and unmarshall
