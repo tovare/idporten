@@ -12,6 +12,6 @@
 # below:
 .git
 .gitignore
-py
+py/
 node_modules
 #!include:.gitignore
