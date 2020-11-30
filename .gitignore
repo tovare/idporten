@@ -2,10 +2,10 @@
 hours?from=2010-05-01T00:00:00Z&to=2014-05-02T23:59:59Z&categories=TE-orgnum=889640782
 hours?from=2014-05-01T00:00:00Z&to=2014-05-02T23:59:59Z&categories=TE-orgnum=889640782
 workspace.code-workspace
+py
+py/idporten.ipynb
 py/~$innlogginger_sum_mnd.xlsx
 py/innlogginger_sum_mnd.csv
 py/innlogginger_sum_mnd.xlsx
 py/innlogginger_sum_aar.csv
 .vscode/settings.json
-py
-py/idporten.ipynb
