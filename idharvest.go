@@ -82,7 +82,7 @@ func Query(from time.Time, to time.Time, orgnum Org) (stat []Statistikk, err err
 const (
 	datasetName      string = "idporten"
 	tableName        string = "nav"
-	projectID        string = "	"
+	projectID        string = "homepage-961"
 	MetricsTableName string = "navmetrics"
 )
 
@@ -99,7 +99,7 @@ type PubSubMessage struct {
 // recent data and streams it into BigQuery.
 //
 //
-//    gcloud functions deploy StreamLatestDataToBigQuery --memory=127 --runtime go113 --trigger-topic monitor
+//    gcloud functions deploy StreamLatestDataToBigQuery --memory=128 --runtime go113 --trigger-topic monitor
 func StreamLatestDataToBigQuery(ctx context.Context, m PubSubMessage) (err error) {
 
 	client, err := bigquery.NewClient(ctx, projectID)
